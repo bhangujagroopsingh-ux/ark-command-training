@@ -3,3 +3,77 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet"/>
+<meta name="referrer" content="no-referrer"/>
+<meta name="theme-color" content="#201522"/>
+<title>A Little Surprise For You ♡</title>
+<style>
+:root{color-scheme:dark;--gold:#eac59b;--paper:#fff0da}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#1b1120;color:var(--paper)}
+main{min-height:100svh;display:grid;place-items:center;padding:32px 18px;background:radial-gradient(ellipse at 55% 12%,#7c5168 0%,transparent 52%),radial-gradient(ellipse at 50% 100%,#533742 0%,transparent 55%),#1b1120;position:relative;overflow:hidden}
+main:before{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(2px 2px at 12% 17%,#fff7edb0 60%,transparent),radial-gradient(2px 2px at 83% 23%,#fff7ed90 60%,transparent),radial-gradient(1px 1px at 49% 64%,#fff 60%,transparent),radial-gradient(1px 1px at 14% 77%,#fff 60%,transparent);opacity:.4}
+.card{position:relative;width:min(100%,460px);padding:44px 30px;text-align:center;border:1px solid #edc4a45e;background:linear-gradient(150deg,#ffffff0d,#ffffff03);border-radius:26px;box-shadow:0 20px 90px #0009}
+.spark{font-size:34px;margin:4px 0 28px;line-height:1}
+.eyebrow{font-size:11px;letter-spacing:.32em;font-weight:700;color:#e8bf9c;text-transform:uppercase}
+h1{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:clamp(35px,9vw,52px);line-height:1.13;letter-spacing:-.04em;margin:17px auto 14px}
+p{font-size:15px;line-height:1.7;color:#e8d6d2;margin:0 auto 30px;max-width:31ch}
+form{display:grid;gap:12px}
+input{width:100%;border:1px solid #edd2b288;background:#0d0c16b3;color:white;border-radius:12px;padding:16px;text-align:center;letter-spacing:.055em;font:500 15px system-ui;outline-offset:4px}
+input:focus{outline:2px solid var(--gold)}
+button{background:linear-gradient(130deg,#ffe0b3,#d9a77e);color:#281b21;border:0;padding:17px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.65;cursor:wait}
+small{display:block;color:#cdbcb7;margin-top:22px;line-height:1.5}
+#error{color:#ffbebc;min-height:23px;font-size:13px;margin-top:12px}
+#story{display:none;width:100%;height:100svh;border:none;background:#1b1120}
+body.open main{display:none}body.open #story{display:block}
+@media(max-width:390px){.card{padding:32px 20px}}
+</style>
+</head>
+<body>
+<main id="gate">
+ <div class="card">
+   <div class="spark" aria-hidden="true">♡</div>
+   <div class="eyebrow">A private little universe</div>
+   <h1>Just for you, Tania.</h1>
+   <p>Some stories are meant to be shared with only one person. This one is yours.</p>
+   <form id="unlock-form">
+     <label for="password" class="eyebrow" style="letter-spacing:.15em">Our secret key</label>
+     <input id="password" type="password" placeholder="Enter your secret key" required autocomplete="off" autocapitalize="off" spellcheck="false" />
+     <button type="submit" id="unlock">Open our story ✨</button>
+   </form>
+   <div id="error" role="status" aria-live="polite"></div>
+   <small>Made with love. Protected so our memories stay ours.</small>
+ </div>
+</main>
+<iframe id="story" title="Our love story" allow="autoplay; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer"></iframe>
+<script>
+(function(){
+'use strict';
+const form=document.getElementById('unlock-form');
+const btn=document.getElementById('unlock');
+const pass=document.getElementById('password');
+const error=document.getElementById('error');
+const story=document.getElementById('story');
+const dec=new TextDecoder();
+function bytes64(s){let a=atob(s);let b=new Uint8Array(a.length);for(let i=0;i<a.length;i++)b[i]=a.charCodeAt(i);return b;}
+function normalize(s){return s.toUpperCase().replace(/[\s\-]/g,'')}
+async function loadJson(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('Load failure');return r.json()}
+async function unlock(password){
+ const conf=await loadJson('manifest.json');
+ const raw=await Promise.all(conf.pieces.map(async file=>{const r=await fetch(file,{cache:'no-store'});if(!r.ok)throw new Error('Load failure');return r.text()}));
+ const keyseed=await crypto.subtle.importKey('raw',new TextEncoder().encode(normalize(password)),{name:'PBKDF2'},false,['deriveKey']);
+ const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:bytes64(conf.salt),iterations:conf.iterations,hash:'SHA-256'},keyseed,{name:'AES-GCM',length:256},false,['decrypt']);
+ const decrypted=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes64(conf.iv),additionalData:new TextEncoder().encode('tania-locked-story-v1')},key,bytes64(raw.join('')));
+ const unzipStream=new Blob([decrypted]).stream().pipeThrough(new DecompressionStream('gzip'));
+ return dec.decode(await new Response(unzipStream).arrayBuffer());
+}
+form.addEventListener('submit',async e=>{
+ e.preventDefault();error.textContent='';btn.disabled=true;btn.textContent='Opening our memories…';
+ try{const html=await unlock(pass.value);pass.value='';story.srcdoc=html;document.body.classList.add('open');}
+ catch(ex){error.textContent=ex.name==='OperationError'?'That secret key doesn’t match. Please try again.':'Couldn’t open the story. Please check your connection and try again.';}
+ finally{btn.disabled=false;btn.textContent='Open our story ✨'}
+});
+})();
+</script>
+</body></html>
